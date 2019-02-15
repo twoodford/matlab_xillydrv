@@ -71,4 +71,6 @@ void write_byte_value(char *fname, off_t offset, unsigned char value) {
         perror("write() failed");
         mexErrMsgTxt("write() failed");
     }
+    
+    close(fd);
 }
