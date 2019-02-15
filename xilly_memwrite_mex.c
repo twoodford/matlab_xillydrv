@@ -5,8 +5,6 @@
 #include <errno.h>
 #include <sys/types.h>
 
-#include <stdio.h>
-
 void write_byte_value(char *fname, off_t offset, unsigned char value);
 
 /**
@@ -43,8 +41,6 @@ void mexFunction(int nlhs, mxArray *plhs[],
     } else {
         mexWarnMsgTxt("value param is wrong type");
     }
-
-    printf("value=%u\n", value);
 
     write_byte_value(fname, offset, value);
 }
