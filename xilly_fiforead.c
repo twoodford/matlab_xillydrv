@@ -95,6 +95,9 @@ void mexFunction(int nlhs, mxArray *plhs[],
                 "Couldn't munlock() memory");
     }
 
+    // Close file
+    close(read_fd);
+
     // return
     plhs[0] = inData;
 }
