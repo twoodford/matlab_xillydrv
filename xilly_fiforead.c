@@ -15,7 +15,7 @@ uint8_t do_read(void *buffer, size_t buf_size, int read_fd) {
     size_t bytes_read = 0;
     while (bytes_read < buf_size) {
         size_t max_read = buf_size - bytes_read;
-        size_t status = read(read_fd, buffer, max_read);
+        size_t status = read(read_fd, buffer + bytes_read, max_read);
         if (status==0) {
             // EOF
             return 0; // TODO will leave bunches of zeros where data should be
@@ -90,7 +90,7 @@ void mexFunction(int nlhs, mxArray *plhs[],
     }
 
     // Unlock memory to make sure we don't run out of RAM
-    if(munlock(inData, buf_size)) {
+    if(munlock(buffer, buf_size)) {
         mexErrMsgIdAndTxt("xillydrv:xilly_fiforead:mem", 
                 "Couldn't munlock() memory");
     }
