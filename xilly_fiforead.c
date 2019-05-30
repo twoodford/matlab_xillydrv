@@ -19,7 +19,8 @@ uint8_t do_read(void *buffer, size_t buf_size, int read_fd) {
         size_t status = read(read_fd, buffer + bytes_read, max_read);
         if (status==0) {
             // EOF
-            printf("Warn: hit EOF\n");
+            mexWarnMsgIdAndTxt("xillydrv:xilly_fiforead:eof",
+                    "Hit EOF - some samples may be missing");
             return 0; // TODO will leave bunches of zeros where data should be
         }
         if (status < 0) {
@@ -95,6 +96,7 @@ void mexFunction(int nlhs, mxArray *plhs[],
     // Unlock memory to make sure we don't run out of RAM
     if(munlock(buffer, buf_size)) {
         perror("munlock");
+        close(read_fd);
         mexErrMsgIdAndTxt("xillydrv:xilly_fiforead:mem", 
                 "Couldn't munlock() memory");
     }
