@@ -65,12 +65,12 @@ void mexFunction(int nlhs, mxArray *plhs[],
     size_t num_values = (size_t) mxGetScalar(prhs[1]);
 
     // User application is responsible for conversion to complex type
-    mxArray *inData = mxCreateNumericMatrix(num_values, 1, mxINT16_CLASS, 0);
+    mxArray *inData = mxCreateNumericMatrix(num_values, 1, mxINT8_CLASS, 0);
     if (inData == NULL) {
         mexErrMsgIdAndTxt("xillydrv:xilly_fiforead:mem", 
                 "Couldn't allocate Matlab array");
     }
-    size_t numSize = 2; // int16
+    size_t numSize = 1; // int8
     size_t buf_size = numSize * num_values;
     void *buffer = mxGetData(inData);
 
