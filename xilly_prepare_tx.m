@@ -2,7 +2,7 @@ function xilly_prepare_tx(tx_samples)
 
 ctrlfile = '/dev/xillybus_mem_8';
 num_samples = length(tx_samples);
-mem_end_addr = num_samples/128*16;
+mem_end_addr = num_samples/128*16-1;
 
 xilly_memwrite(ctrlfile, 5, bitand(mem_end_addr,255));
 xilly_memwrite(ctrlfile, 6, bitand(bitshift(mem_end_addr,-8),255));
