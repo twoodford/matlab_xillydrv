@@ -46,9 +46,9 @@ uint8_t do_read(void *buffer, size_t buf_size, int read_fd) {
 void mexFunction(int nlhs, mxArray *plhs[],
                  int nrhs, const mxArray *prhs[])
 {
-    if(nrhs != 2) {
+    if(nrhs != 2 && nrhs != 3) {
         mexErrMsgIdAndTxt("xillydrv:xilly_fiforead:nrhs",
-                      "Two inputs required");
+                      "Two or three inputs required");
     }
     
     // filename
@@ -59,20 +59,43 @@ void mexFunction(int nlhs, mxArray *plhs[],
     }
 
     // num_values
-    if(!mxIsScalar(prhs[1]) || !mxIsNumeric(prhs[1])) {
+    if (!mxIsScalar(prhs[1]) || !mxIsNumeric(prhs[1])) {
         mexErrMsgIdAndTxt("xillydrv:xilly_fiforead:nrhs",
                 "Output array size needs to be a numeric scalar");
     }
     size_t num_values = (size_t) mxGetScalar(prhs[1]);
+    
+    // bytes_per_sample
+    uint8_t bytes_per_sample;
+    mxClassID sample_type;
+    if (nrhs == 3){
+        if(!mxIsScalar(prhs[2]) || !mxIsNumeric(prhs[2])) {
+            mexErrMsgIdAndTxt("xillydrv:xilly_fiforead:nrhs",
+                "Sample byte width needs to be a numeric scalar");
+        }
+        bytes_per_sample = (uint8_t) mxGetScalar(prhs[2]);
+        switch (bytes_per_sample) {
+            case 1:
+                sample_type = mxINT8_CLASS;
+                break;
+            case 2:
+                sample_type = mxINT16_CLASS;
+                break;
+            default:
+                mexErrMsgTxt("Only support byte widths of 1 or 2");
+        }
+    } else {
+        bytes_per_sample = 1;
+        sample_type = mxINT8_CLASS;
+    }
 
     // User application is responsible for conversion to complex type
-    mxArray *inData = mxCreateNumericMatrix(num_values, 1, mxINT8_CLASS, 0);
+    mxArray *inData = mxCreateNumericMatrix(num_values, 1, sample_type, 0);
     if (inData == NULL) {
         mexErrMsgIdAndTxt("xillydrv:xilly_fiforead:mem", 
                 "Couldn't allocate Matlab array");
     }
-    size_t numSize = 1; // int8
-    size_t buf_size = numSize * num_values;
+    size_t buf_size = bytes_per_sample * num_values;
     void *buffer = mxGetData(inData);
 
     // This keeps the memory from being swapped out and generally 
