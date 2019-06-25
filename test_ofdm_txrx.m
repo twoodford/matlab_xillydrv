@@ -14,9 +14,10 @@ REPLAY_TIME = 1;
 USE_OPENMILI_TXRX           = 1;            % Enable WARPLab-in-the-loop (otherwise sim-only)
 WRITE_PNG_FILES         = 0;            % Enable writing plots to PNG
 %CHANNEL                 = 11;          % Channel to tune Tx and Rx radios
+Fc                          = 60e9;
 
 % Waveform params
-N_OFDM_SYMS             = 800;         % Number of OFDM symbols
+N_OFDM_SYMS             = 2;         % Number of OFDM symbols
 MOD_ORDER               = 2;            % Modulation order (2/4/16/64 = BSPK/QPSK/16-QAM/64-QAM)
 TX_SCALE                = 1;          % Scale for Tx waveform ([0:1])
 IQ_BALANCE              = 1;            % Calibrate the IQ imbalance
@@ -148,7 +149,7 @@ tx_vec = [preamble tx_payload_vec];
 % Pad with zeros for transmission to deal with delay through the
 % interpolation filter
 tx_vec_padded = [tx_vec, zeros(1, ceil(length(interp_filt2)/2))];
-tx_vec_padded = [zeros(1,8000) tx_vec_padded zeros(1,8000 - mod(length(tx_vec_padded),8))];
+tx_vec_padded = [zeros(1,128) tx_vec_padded zeros(1,128 - mod(length(tx_vec_padded),8))];
 
 %% Interpolate
 % Zero pad then filter (same as interp or upfirdn without signal processing toolbox)
@@ -208,17 +209,76 @@ for ii = 1:REPLAY_TIME
     %% Correlate for LTS
 
     % Complex cross correlation of Rx waveform with time-domain LTS
-    lts_corr = abs(conv(conj(fliplr(lts_t)), sign(raw_rx_dec)));
+    lts_corr = abs(conv(conj(fliplr(lts_t)), (raw_rx_dec)));
 
     % Skip early and late samples - avoids occasional false positives from pre-AGC samples
     lts_corr = lts_corr(32:end-32);
 
     % Find all correlation peaks
-    lts_peaks = find(lts_corr(1:800) > LTS_CORR_THRESH*max(lts_corr));
+    lts_peaks = find(lts_corr(1:1000) > LTS_CORR_THRESH*max(lts_corr));
 
     % Select best candidate correlation peak as LTS-payload boundary
     [LTS1, LTS2] = meshgrid(lts_peaks,lts_peaks);
     [lts_second_peak_index,y] = find(LTS2-LTS1 == length(lts_t));
+
+    %% Plot results, pt. 1
+        cf = 0;
+
+    % Tx signal
+    cf = cf + 1;
+    figure(cf); clf;
+
+    subplot(2,1,1);
+    plot(real(tx_vec_air), 'b');
+    axis([0 length(tx_vec_air) -TX_SCALE TX_SCALE])
+    grid on;
+    title('Tx Waveform (I)');
+
+    subplot(2,1,2);
+    plot(imag(tx_vec_air), 'r');
+    axis([0 length(tx_vec_air) -TX_SCALE TX_SCALE])
+    grid on;
+    title('Tx Waveform (Q)');
+
+    if(WRITE_PNG_FILES)
+        print(gcf,sprintf('wl_ofdm_plots_%s_txIQ', example_mode_string), '-dpng', '-r96', '-painters')
+    end
+
+    % Rx signal
+    cf = cf + 1;
+    figure(cf); clf;
+    subplot(2,1,1);
+    plot(real(rx_vec_air), 'b');
+    axis([0 length(rx_vec_air) -TX_SCALE TX_SCALE])
+    grid on;
+    title('Rx Waveform (I)');
+
+    subplot(2,1,2);
+    plot(imag(rx_vec_air), 'r');
+    axis([0 length(rx_vec_air) -TX_SCALE TX_SCALE])
+    grid on;
+    title('Rx Waveform (Q)');
+
+    if(WRITE_PNG_FILES)
+        print(gcf,sprintf('wl_ofdm_plots_%s_rxIQ', example_mode_string), '-dpng', '-r96', '-painters')
+    end
+
+    % Rx LTS correlation
+    cf = cf + 1;
+    figure(cf); clf;
+    lts_to_plot = lts_corr;
+    plot(lts_to_plot, '.-b', 'LineWidth', 1);
+    hold on;
+    grid on;
+    line([1 length(lts_to_plot)], LTS_CORR_THRESH*max(lts_to_plot)*[1 1], 'LineStyle', '--', 'Color', 'r', 'LineWidth', 2);
+    title('LTS Correlation and Threshold')
+    xlabel('Sample Index')
+    myAxis = axis();
+    axis([1, 1000, myAxis(3), myAxis(4)])
+
+    if(WRITE_PNG_FILES)
+        print(gcf,sprintf('wl_ofdm_plots_%s_ltsCorr', example_mode_string), '-dpng', '-r96', '-painters')
+    end
 
     % Stop if no valid correlation peak was found
     if(isempty(lts_second_peak_index))
@@ -231,6 +291,8 @@ for ii = 1:REPLAY_TIME
     % The "-160" corresponds to the length of the preamble LTS (2.5 copies of 64-sample LTS)
     payload_ind = lts_peaks(max(lts_second_peak_index)) + 32;
     lts_ind = payload_ind-160;
+    
+    fprintf('LTS starts at %d\n', lts_ind);
 
     if(DO_APPLY_CFO_CORRECTION)
         %Extract LTS (not yet CFO corrected)
@@ -341,63 +403,6 @@ for ii = 1:REPLAY_TIME
     end
 
     %% Plot Results
-    cf = 0;
-
-    % Tx signal
-    cf = cf + 1;
-    figure(cf); clf;
-
-    subplot(2,1,1);
-    plot(real(tx_vec_air), 'b');
-    axis([0 length(tx_vec_air) -TX_SCALE TX_SCALE])
-    grid on;
-    title('Tx Waveform (I)');
-
-    subplot(2,1,2);
-    plot(imag(tx_vec_air), 'r');
-    axis([0 length(tx_vec_air) -TX_SCALE TX_SCALE])
-    grid on;
-    title('Tx Waveform (Q)');
-
-    if(WRITE_PNG_FILES)
-        print(gcf,sprintf('wl_ofdm_plots_%s_txIQ', example_mode_string), '-dpng', '-r96', '-painters')
-    end
-
-    % Rx signal
-    cf = cf + 1;
-    figure(cf); clf;
-    subplot(2,1,1);
-    plot(real(rx_vec_air), 'b');
-    axis([0 length(rx_vec_air) -TX_SCALE TX_SCALE])
-    grid on;
-    title('Rx Waveform (I)');
-
-    subplot(2,1,2);
-    plot(imag(rx_vec_air), 'r');
-    axis([0 length(rx_vec_air) -TX_SCALE TX_SCALE])
-    grid on;
-    title('Rx Waveform (Q)');
-
-    if(WRITE_PNG_FILES)
-        print(gcf,sprintf('wl_ofdm_plots_%s_rxIQ', example_mode_string), '-dpng', '-r96', '-painters')
-    end
-
-    % Rx LTS correlation
-    cf = cf + 1;
-    figure(cf); clf;
-    lts_to_plot = lts_corr;
-    plot(lts_to_plot, '.-b', 'LineWidth', 1);
-    hold on;
-    grid on;
-    line([1 length(lts_to_plot)], LTS_CORR_THRESH*max(lts_to_plot)*[1 1], 'LineStyle', '--', 'Color', 'r', 'LineWidth', 2);
-    title('LTS Correlation and Threshold')
-    xlabel('Sample Index')
-    myAxis = axis();
-    axis([1, 1000, myAxis(3), myAxis(4)])
-
-    if(WRITE_PNG_FILES)
-        print(gcf,sprintf('wl_ofdm_plots_%s_ltsCorr', example_mode_string), '-dpng', '-r96', '-painters')
-    end
 
     % Channel Estimates
     cf = cf + 1;
