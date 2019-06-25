@@ -36,6 +36,33 @@ uint8_t do_read(void *buffer, size_t buf_size, int read_fd) {
     return 0;
 }
 
+// Copied from xilly_memwrite_mex.c
+void write_byte_value(char *fname, off_t offset, unsigned char value) {
+    int fd = open(fname, O_WRONLY);
+    if (fd < 0) {
+        if (errno==ENODEV) {
+            mexErrMsgTxt("Maybe this is a read-only file?");
+        } else {
+            mexErrMsgTxt("Couldn't open device file");
+        }
+        return;
+    }
+
+    if (lseek(fd, offset, SEEK_SET) < 0) {
+        mexErrMsgTxt("Couldn't lseek()");
+        return;
+    }
+
+    int wout;
+    while ((wout=write(fd, &value, 1))==0) {}
+    if (wout < 0){
+        perror("write() failed");
+        mexErrMsgTxt("write() failed");
+    }
+    
+    close(fd);
+}
+
 /**
  * xilly_fiforead(fname, num_values, [type?])
  * Read num_values numbers out of the FIFO and into memory.
@@ -109,12 +136,20 @@ void mexFunction(int nlhs, mxArray *plhs[],
     // Open the Xillybus device file
     int read_fd = open(fname, O_RDONLY);
 
+    // Send start signal to mem_8
+    // We want to do this *after* opening the FIFO to avoid 
+    // a non-deterministic offset between rx and tx
+    write_byte_value("/dev/xillybus_mem_8", 0, 3);
+
     // Do the reads
     uint8_t status = do_read(buffer, buf_size, read_fd);
     if(status != 0) {
         mexErrMsgIdAndTxt("xillydrv:xilly_fiforead:read",
                 "Error while copying data from device file");
     }
+    
+    // Explicitly stop tx
+    write_byte_value("/dev/xillybus_mem_8", 0, 0);
 
     // Unlock memory to make sure we don't run out of RAM
     if(munlock(buffer, buf_size)) {
