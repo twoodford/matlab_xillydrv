@@ -10,7 +10,7 @@ xilly_memwrite(ctrlfile, 6, bitand(bitshift(mem_end_addr,-8),255));
 % Assume all samples are real for now, will change in the future
 fh = fopen('/dev/xillybus_mem_128', 'a');
 fseek(fh, 0, -1);
-fwrite(fh, tx_samples, 'int8');
+fwrite(fh, tx_samples, 'int16');
 fclose(fh);
 
 end
